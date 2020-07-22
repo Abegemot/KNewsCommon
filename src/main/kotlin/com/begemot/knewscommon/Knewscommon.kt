@@ -9,7 +9,7 @@ data class GetHeadLines(val headlinesname:String,val lang:String)
 data class GetArticle(val headlinesname:String,val lang:String,val link:String)
 
 
-
+@Serializable
 data class StoreFile(val filename:String,val content:String)
 
 @Serializable
