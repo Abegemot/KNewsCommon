@@ -4,8 +4,9 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonConfiguration
-import java.lang.Exception
-import kotlin.reflect.KClass
+import java.io.PrintWriter
+import java.io.StringWriter
+import kotlin.Exception
 
 val kjson= Json(JsonConfiguration.Stable)
 
@@ -31,107 +32,35 @@ inline class JListKArticle(val str:String)
 inline class JListOriginalTransLink(val str:String)
 
 
+fun fromJsonToList(str:JListKArticle):List<KArticle>                     =  kjson.parse(ListSerializer(KArticle.serializer()),(str.str))
+
+fun fromJsonToList(str:JListString):List<String>                         =  kjson.parse(ListSerializer(String.serializer()),(str.str))
+
+fun fromJsonToList(str:JListOriginalTrans):List<OriginalTrans>           =  kjson.parse(ListSerializer(OriginalTrans.serializer()),(str.str))
+
+fun fromJsonToList(str:JListOriginalTransLink):List<OriginalTransLink>   =  kjson.parse(ListSerializer(OriginalTransLink.serializer()),(str.str))
 
 
-fun List<OriginalTransLink>.toJsonString(a:Short=0):JListOriginalTransLink = JListOriginalTransLink(kjson.stringify(ListSerializer(OriginalTransLink.serializer()),this))
-fun JListOriginalTransLink.toLOriginalTransLink():List<OriginalTransLink> = kjson.parse(ListSerializer(OriginalTransLink.serializer()),this.str)
+fun toJListKArticle(list:List<KArticle>):JListKArticle                   = JListKArticle(kjson.stringify(ListSerializer(KArticle.serializer()),list))
 
+fun toJListOriginalTransLink(list:List<OriginalTransLink>):JListOriginalTransLink = JListOriginalTransLink(kjson.stringify(ListSerializer(OriginalTransLink.serializer()),list))
 
-fun List<KArticle>.toJsonString(a:Long=0):JListKArticle = JListKArticle(kjson.stringify(ListSerializer(KArticle.serializer()),this))
-fun JListKArticle.toListKArticle():List<KArticle> = kjson.parse(ListSerializer(KArticle.serializer()),this.str)
+fun toJListOriginalTrans(list:List<OriginalTrans>):JListOriginalTrans = JListOriginalTrans(kjson.stringify(ListSerializer(OriginalTrans.serializer()),list))
 
-fun List<OriginalTrans>.toJsonString():JListOriginalTrans = JListOriginalTrans(kjson.stringify(ListSerializer(OriginalTrans.serializer()),this))
-
-fun JListOriginalTrans.toListOriginalTrans():List<OriginalTrans> = kjson.parse(ListSerializer(OriginalTrans.serializer()),this.str)
-
-fun List<String>.toJsonString22(i:Int=0):JListString = JListString(kjson.stringify(ListSerializer(String.serializer()),this))
-
-fun JListString.toListString():List<String> = kjson.parse(ListSerializer(String.serializer()),this.str)
-
-
-@ImplicitReflectionSerializer
-fun pepe(){
-    val X= mutableListOf<KArticle>()
-    val z=X.toJList<KArticle,JListKArticle>()
-}
-
-@ImplicitReflectionSerializer
-fun List<String>.toJsonString(i:Int=0):JListString = JListString(ListToString1(this))
-
-val classestojsonlist= mapOf < KClass<*>, KClass<*> >(
-    KArticle::class to JListKArticle::class,
-    OriginalTransLink::class to JListOriginalTransLink::class,
-    String::class to JListString::class,
-    OriginalTrans::class to JListOriginalTrans::class
-)
-
-
-@ImplicitReflectionSerializer
-inline  fun <reified T, reified Y:Any> List<T>.toJList():Y{
-    val s= serializer<T>()
-    val x = Json(JsonConfiguration.Stable).stringify(ListSerializer(s),this)
-    if(T::class.simpleName.equals(KArticle::class.simpleName))           return JListKArticle(x) as Y
-    if(T::class.simpleName.equals(OriginalTrans::class.simpleName))      return JListOriginalTrans(x) as Y
-    if(T::class.simpleName.equals(String::class.simpleName))             return JListString(x) as Y
-    if(T::class.simpleName.equals(OriginalTransLink::class.simpleName))  return JListOriginalTransLink(x) as Y
-    throw Exception(" Wrong parameter in List< ${T::class.simpleName}, ${Y::class.simpleName}>.toJList !!")
-
-}
-@ImplicitReflectionSerializer
-inline  fun <reified T> String.fromJList():List<T>{
-    val s= serializer<T>()
-    return kjson.parse(ListSerializer(s),this)
-}
-
-@ImplicitReflectionSerializer
-fun pp(){
-    val str="jsjsjs"
-    val j=str.fromJList<String>()
-    val jo=JListKArticle("jsjsj")
-    val q= jo.str.fromJList<KArticle>()
-    val u=q.toJList<KArticle,JListKArticle>()
-}
+fun toJListString(list:List<String>):JListString = JListString(kjson.stringify(ListSerializer(String.serializer()),list))
 
 
 
 
-@ImplicitReflectionSerializer
-inline fun <reified T> ListToString3(value:List<T>):Any {
-    val s = serializer<T>()
-    val output = classestojsonlist[T::class] ?: throw Exception("No JsonListString class for class ${T::class.java.canonicalName} ")
-    val qs = Json(JsonConfiguration.Stable).stringify(ListSerializer(s), value)
-    val pp = output.constructors.first().call(qs)
-    return pp
-}
 
-fun <T> KStringifier (){
 
-}
-
-@ImplicitReflectionSerializer
-inline fun <reified T,reified Y> ListToString2(value:List<T>,afun:(String)->Y):Y{
-    val s= serializer<T>()
-    return  afun( (Json(JsonConfiguration.Stable).stringify(ListSerializer(s),value)))
-}
-
-@ImplicitReflectionSerializer
-inline fun <reified T> ListToString1(value:List<T>):String{
-    val s= serializer<T>()
-    return Json(JsonConfiguration.Stable).stringify(ListSerializer(s),value)
-}
-
-@ImplicitReflectionSerializer
-inline fun <reified T:Any> StringToList(value:String):List<T>{
-    val s= serializer<T>()
-      return kjson.parse(ListSerializer(s),value)
-}
 @Serializable
 class ListOriginalTransList(val lOT:List<OriginalTransLink>)
 @Serializable
 class JasonString(val value:String)
 
 
-inline class JsonTranslatedHeadlines(val value:String)
+
 
 
 
@@ -157,6 +86,31 @@ data class StoredElement(val name:String, val tag:String, val tcreation:Long, va
 
 
 @Serializable
-data class NewsPaper( val name:String,val title: String,val oland:String,val logoname:String)
+data class NewsPaper(val handler:String, val name:String,val title: String,val oland:String,val logoname:String)
 
 
+sealed class KResult<T,R>{
+    class Success<T,R>(val t:T):KResult<T,R>()
+    class Error<T,R>(val msg:String,val e:Exception?=null):KResult<T,R>()
+    object Empty:KResult<Nothing,Nothing>()
+}
+
+
+inline fun <reified T, reified R> exWithException(afun:()->T): KResult<T,R> {
+    return try {
+        val p=afun()
+        KResult.Success(p)
+    }catch (e:Exception){
+        KResult.Error("error",e)
+    }
+}
+
+fun getStackExceptionMsg(e:Exception?):String{
+    var msg = "null"
+    val sw = StringWriter()
+    if (e != null) {
+        e.printStackTrace(PrintWriter(sw))
+        msg = sw.toString()
+    }
+    return msg
+}

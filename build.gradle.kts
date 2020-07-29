@@ -29,7 +29,7 @@ repositories {
 dependencies {
     implementation(platform("com.begemot.knewsplatform-bom:deps:0.0.1"))
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
-    api("org.jetbrains.kotlinx:kotlinx-serialization-runtime")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-runtime")
     //implementation (kotlin("stdlib-jdk8"))
     //implementation(Versions.JSOUP)
     //implementation("io.ktor:ktor-client-serialization-jvm:1.3.2")
