@@ -3,10 +3,10 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 //import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    id("com.github.ben-manes.versions") version "0.28.0"
+    id("com.github.ben-manes.versions") version "0.33.0"
     `java-library`
-    kotlin("jvm") version("1.3.72")
-    kotlin("plugin.serialization") version("1.3.72")
+    kotlin("jvm") version("1.4.10")
+    kotlin("plugin.serialization") version "1.4.10"
 
 }
 
@@ -29,7 +29,8 @@ repositories {
 dependencies {
     implementation(platform("com.begemot.knewsplatform-bom:deps:0.0.1"))
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-runtime")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-core")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json")
     //implementation (kotlin("stdlib-jdk8"))
     //implementation(Versions.JSOUP)
     //implementation("io.ktor:ktor-client-serialization-jvm:1.3.2")
