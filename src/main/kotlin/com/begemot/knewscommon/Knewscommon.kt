@@ -30,6 +30,7 @@ interface IBaseNewsPaper {
     val desc: String
     val logoName: String
     val handler: String
+    val url:String
 }
 
 
@@ -48,7 +49,8 @@ data class NewsPaper(
     override val name: String,
     override val desc: String,
     override val logoName: String,
-    override val handler: String
+    override val handler: String,
+    override val url: String
 ) : IBaseNewsPaper
 
 fun INewsPaper.toNewsPaper(): NewsPaper {
@@ -57,7 +59,8 @@ fun INewsPaper.toNewsPaper(): NewsPaper {
         name = name,
         desc = desc,
         logoName = logoName,
-        olang = olang
+        olang = olang,
+        url = url
     )
 }
 
@@ -123,10 +126,13 @@ data class OriginalTransLink(
 )
 
 @JvmName("printOriginalTransLink")
-fun List<OriginalTransLink>.print(sAux:String="",amount:Int=5){
-    println("$sAux begin print first $amount List<OriginalTransLink> n: ${this.size}")
-    subList(0,amount).forEach { it->println("${it.kArticle.title}   ${it.kArticle.link}   trans->${it.translated}  romanOrig->${it.romanizedo} romanTrans->${it.romanizedt}  end") }
-    println("end print List<OriginalTransLink>")
+fun List<OriginalTransLink>.print(sAux:String="",amount:Int=5):String{
+    val sB=StringBuilder()
+    sB.append("\n$sAux begin print first $amount List<OriginalTransLink> n: ${this.size}\n")
+    val total=if(amount>size) size else amount
+    subList(0,total).forEach { it->sB.append("     ${it.kArticle.title}   ${it.kArticle.link}   trans->${it.translated}  romanOrig->${it.romanizedo} romanTrans->${it.romanizedt}  end\n") }
+    sB.append("end print List<OriginalTransLink>\n")
+    return sB.toString()
 }
 
 @Serializable
@@ -415,7 +421,7 @@ fun getPinying(s:String):List<Pinyin>{
 fun JsonToListStrings(json:String):List<Translations>{
     //val ls= mutableListOf<String>()
     //println("zzzzzzzzzzzzzzzzzzzzzzzzz  !!!!!!!!!")
-    println("JSON------(from this shit obtained by gg to List<Translations>)------------------->>> $json")
+    logger.debug{"JSON------(from this shit obtained by gg to List<Translations>)------------------->>> $json"}
     val topic= kjson.decodeFromString(Json4Kotlin_Base.serializer(),json)
     //val topic = Gson().fromJson(json, Json4Kotlin_Base::class.java)
     return topic.data.translations

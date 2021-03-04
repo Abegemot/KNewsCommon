@@ -5,8 +5,8 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 plugins {
     id("com.github.ben-manes.versions") version "0.36.0"
     `java-library`
-    kotlin("jvm") version("1.4.21")
-    kotlin("plugin.serialization") version "1.4.21"
+    kotlin("jvm") version("1.4.30")
+    kotlin("plugin.serialization") version "1.4.30"
 
 }
 
@@ -55,5 +55,5 @@ compileTestKotlin.kotlinOptions {
 }*/
 val compileKotlin: KotlinCompile by tasks
 compileKotlin.kotlinOptions {
-    freeCompilerArgs = listOf("-XXLanguage:+InlineClasses")
+    //freeCompilerArgs = listOf("-XXLanguage:+InlineClasses")
 }
