@@ -26,36 +26,77 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.util.*
 import io.ktor.util.date.*
+import kotlinx.serialization.modules.SerializersModule
+import kotlinx.serialization.modules.polymorphic
 
 
 import java.io.IOException
+
+
+/*val modulex= SerializersModule {
+    polymorphic(IBaseNewsPaper::class){
+        subclass(SZ::class,SZ.serializer())
+        subclass(B::class,B.serializer())
+    }
+}*/
 
 
 private val logger = KotlinLogging.logger {}
 
 val kjson = Json { encodeDefaults = true; ignoreUnknownKeys = true }
 
+enum class KindOfNews{
+    NEWS,BOOK
+}
+
+
+
 interface IBaseNewsPaper {
+    val kind:KindOfNews
     val olang: String
     val name: String
     val desc: String
     val logoName: String
     val handler: String
     val url:String
+    fun getOriginalHeadLines(): List<KArticle> { return emptyList<KArticle>()  }
+    fun getOriginalArticle(link: String): String { return "" }
+
 }
 
 
 interface INewsPaper : IBaseNewsPaper {
-    // suspend fun getTranslatedArticle(originalTransLink: OriginalTransLink, statusApp: StatusApp):MutableList<OriginalTrans>
-    fun getOriginalHeadLines(): List<KArticle>
-    fun getOriginalArticle(
-        link: String,
-        //strbuild: StringBuilder
-    ): List<String> //the article split in 3000 chars pieces
+    override val kind: KindOfNews
+        get()=KindOfNews.NEWS
 }
 
+interface IBook:IBaseNewsPaper{
+    val directory:String
+    override val kind: KindOfNews
+        get()=KindOfNews.BOOK
+}
+
+
 @Serializable
-data class NewsPaper(
+@SerialName("NEWS")
+class NewsPaper(
+    override val kind: KindOfNews=KindOfNews.NEWS,
+    override val olang: String,
+    override val name: String,
+    override val desc: String,
+    override val logoName: String,
+    override val handler: String,
+    override val url: String,
+
+) : IBaseNewsPaper{
+    override fun toString():String="Hola"
+}
+
+
+@Serializable
+@SerialName("BOOKS")
+data class Book(
+    override val kind: KindOfNews=KindOfNews.BOOK,
     override val olang: String,
     override val name: String,
     override val desc: String,
@@ -64,8 +105,9 @@ data class NewsPaper(
     override val url: String
 ) : IBaseNewsPaper
 
-fun INewsPaper.toNewsPaper(): NewsPaper {
+fun IBaseNewsPaper.toNewsPaper(): NewsPaper {
     return NewsPaper(
+        kind = kind,
         handler = handler,
         name = name,
         desc = desc,
@@ -76,12 +118,28 @@ fun INewsPaper.toNewsPaper(): NewsPaper {
 }
 
 
-@Serializable
-data class NewsPaperVersion(val version: Int=0, val newspaper: List<NewsPaper> = emptyList())
+fun List<NewsPaper>.print():String{
+    val sb=StringBuilder()
+    this.forEach { it->sb.append("${it.handler} ${it.kind} ${it.olang} ${it.desc} ${it.logoName} ${it.url}  \n") }
+    return sb.toString()
+}
 
 
 @Serializable
-data class GetHeadLines(val handler: String, val tlang: String, val datal: Long)
+data class NewsPaperVersion(val version: Int=0, val newspaper: List<NewsPaper> = emptyList()){
+   //override fun toString(): String {
+   //     return "Aqui mano jo"
+   //  }
+    fun toString2():String{
+       return "Aqui mano jo\nVersion $version\n${newspaper.print()}"
+    }
+}
+
+
+@Serializable
+data class GetHeadLines(val handler: String, val tlang: String, val datal: Long){
+    fun AndroidNameFile():String="Headlines/${handler}${tlang}"
+}
 
 @Serializable
 data class GetArticle(val handler: String, val tlang: String, val link: String)
@@ -93,12 +151,26 @@ data class StoreFile(val filename: String, val content: String)
 @Serializable
 data class KArticle(val title: String = "", val link: String = "")
 
+
+@Serializable
+data class OriginalTransLink(
+    val kArticle: KArticle=KArticle(),
+    val translated: String = "",
+    val romanizedo: ListPinyin = ListPinyin(),
+    val romanizedt: ListPinyin = ListPinyin(),
+
+){
+    fun getShortenedLinkName():String {
+        return ""
+    }
+}
+
 @JvmName("printKArticle")
-fun List<KArticle>.print(sAux:String="", amount: Int=5):String{
+fun List<KArticle>.print(sAux:String="", amount: Int=1000000):String{
     val sB=StringBuilder()
-    sB.append("$sAux print first $amount List<KArticle> Size: ${this.size}\n")
+    sB.append("$sAux print $amount of ${this.size} List<KArticle> \n")
     val total=if(amount>size) size else amount
-    subList(0,total).forEach { it->sB.append("     ${it.title}   ${it.link}<-end\n") }
+    subList(0,total).forEachIndexed { index, it ->  sB.append(" ($index)   ${it.title}   ${it.link}<-end\n") }
     sB.append("end print List<KArticle>")
     return sB.toString()
 }
@@ -118,7 +190,7 @@ data class ListPinyin(val lPy:List<Pinyin> = emptyList()){
 }
 
 @JvmName("printString")
-fun List<String>.print(sAux:String="", amount:Int=5):String{
+fun List<String>.print(sAux:String="", amount:Int=2):String{
     val sB=StringBuilder()
     sB.append("\n${sAux} printing first $amount items of List<String> of ${this.size}\n")
     val total=if(amount>size) size else amount
@@ -131,22 +203,29 @@ fun List<String>.print(sAux:String="", amount:Int=5):String{
     return sB.toString()
 }
 
+fun printFirstLast(l:List<String>,sAux: String,amount:Int=1):String{
+    val sB=StringBuilder()
+    val size=l.size
+    if(size==0) return "empty list"
+    sB.append("\n${sAux} printing firstLast $amount items of List<String> of $size\n")
+    val s= 0.toString().padStart(3,' ')
+    val s2= l.size.toString().padStart(3,' ')
+    sB.append("($s) ${l[0].length.toString().padStart(4,' ')} '${l[0]}'\n")
+    if(size>1){
+        sB.append("($s2) ${l[l.size-1].length.toString().padStart(4,' ')} '${l[l.size-1]}'\n")
 
-@Serializable
-data class OriginalTransLink(
-    val kArticle: KArticle,
-    val translated: String = "",
-    val romanizedo: ListPinyin = ListPinyin(),
-    val romanizedt: ListPinyin = ListPinyin()
-)
+    }
+    return sB.toString()
+}
+
 
 @JvmName("printOriginalTransLink")
-fun List<OriginalTransLink>.print(sAux:String="",amount:Int=5):String{
+fun List<OriginalTransLink>.print(sAux:String="",amount:Int=2):String{
     val sB=StringBuilder()
-    sB.append("\n$sAux begin print first $amount List<OriginalTransLink> n: ${this.size}\n")
+    sB.append("\n$sAux begin print first $amount List<OriginalTransLink> out of $size\n")
     val total=if(amount>size) size else amount
-    subList(0,total).forEach { it->sB.append("     ${it.kArticle.title}   ${it.kArticle.link}   trans->${it.translated}  romanOrig->${it.romanizedo} romanTrans->${it.romanizedt}  end\n") }
-    sB.append("end print List<OriginalTransLink>\n")
+    subList(0,total).forEachIndexed { i,it->sB.append("($i) ${it.kArticle.title}\n  ${it.kArticle.link}\n  trans->${it.translated}\n  romanOrig->${it.romanizedo}\n  romanTrans->${it.romanizedt}  end\n") }
+    sB.append("end print first $total of List<OriginalTransLink>  out of $size\n")
     return sB.toString()
 }
 
@@ -167,7 +246,7 @@ data class OriginalTrans(
     }
 }
 
-fun List<OriginalTrans>.print(sAux: String, amount: Int = 0, start: Int = 0): String {
+fun List<OriginalTrans>.print(sAux: String, amount: Int = 2, start: Int = 0): String {
     //logger.debug { "$sAux  size=$size  start=$start  amount=$amount" }
     val lamount= if(amount==0) size else amount
     if(size==0) return "$sAux Print List<OriginalTrans> EMPTY"
@@ -182,7 +261,7 @@ fun List<OriginalTrans>.print(sAux: String, amount: Int = 0, start: Int = 0): St
         ).forEachIndexed { i, it ->
             val s= i.toString().padStart(3,' ')
 
-            sB.append("\n$s)  original  ->${it.original}  \n$space trans     ->${it.translated}  \n$space romanOrig ->${it.romanizedo} \n$space romanTrans->${it.romanizedt}\n") }
+            sB.append("\n$s) (${it.original.length})  original  ->${it.original}  \n$space trans     ->${it.translated}  \n$space romanOrig ->${it.romanizedo} \n$space romanTrans->${it.romanizedt}\n") }
         sB.append("\nend print List<OriginalTrans>")
     return  sB.toString()
 }
@@ -194,6 +273,15 @@ data class THeadLines(val datal: Long = 0, val lhl: List<OriginalTransLink> = em
         return "THeadLines data ${strfromdateasLong(datal)} size ${lhl.size} ${lhl.size}"
     }
 }
+
+data class TArticle(val lnk:String="",val lot:List<OriginalTrans> = emptyList()){
+
+}
+
+
+data class THeadLine(val ot:OriginalTrans,val lnk: String){}
+
+
 
 inline class JListOriginalTrans(val str: String)
 inline class JListString(val str: String)
@@ -241,7 +329,7 @@ fun THeadLines.toStr():String = kjson.encodeToString(THeadLines.serializer(), th
 class ListOriginalTransList(val lOT: List<OriginalTransLink>)
 
 @Serializable
-class JasonString(val value: String)
+class JasonString  (val value: String)
 
 
 @Serializable
@@ -290,19 +378,19 @@ sealed class KResult<T, R> {
     //object Empty : KResult<Nothing, Nothing>()
 }
 
-@Serializable
+//@Serializable
 sealed class KResult2<T, R> {
     class   Success<T, R>(val t: T, val clientTime:Long=0, val serverTime:Long=0) : KResult2<T, R>() {
         override fun msg(): String { return "SUCCES->${clientTime.milisToSec()}" }
-        fun timeInfo():String = "cli $clientTime srv ${serverTime}  (${clientTime-serverTime})"
+        override fun timeInfo():String = "cli $clientTime srv ${serverTime}  (${clientTime-serverTime})"
 
     }
     class Error<T, R>(val msg: String, val clientTime:Long=0,val serverTime: Long=0) : KResult2<T, R>(){
         override fun msg():String{ return "ERROR->${clientTime.milisToSec()}\nmsg"}
-        fun timeInfo():String = "cli $clientTime srv ${serverTime}  (${clientTime-serverTime})"
+        override fun timeInfo():String = "cli $clientTime srv ${serverTime}  (${clientTime-serverTime})"
     }
     open fun msg():String=""
-
+    open fun timeInfo():String=""
     //object Empty : KResult<Nothing, Nothing>()
 }
 
@@ -350,7 +438,8 @@ fun getStackExceptionMsg2(e: Exception?): String {
     val sw = StringWriter()
     if (e != null) {
             val j=Exception("\nException -> ${e.javaClass.canonicalName} ${e.message}")
-            j.stackTrace = (e.stackTrace.filter { it.className.startsWith("com.begemot") }.toTypedArray())
+     //       j.stackTrace = (e.stackTrace.filter { it.className.startsWith("com.begemot") }.toTypedArray())
+        j.stackTrace = (e.stackTrace.filter { true }.toTypedArray())
             j.printStackTrace(PrintWriter(sw))
             return sw.toString()
     }
@@ -446,32 +535,18 @@ suspend fun <A, B> Iterable<A>.pmap(f: suspend (A) -> B): List<B> = coroutineSco
 }
 
 
-fun getFreeTranslatedArticle(txt: String, olang: String,tlang:String):OriginalTrans{
+/*suspend fun getFreeTranslatedArticle(txt: String, olang: String,tlang:String):OriginalTrans{
       if(olang.equals(tlang))  return  OriginalTrans(txt)
       val transText = getFreeTranslatedText(txt,olang,tlang)
       //val transText = translatePayString(txt,olang,tlang)
       val rO:ListPinyin = if(olang.equals("zh")) ListPinyin(getPinYinKtor(txt)) else ListPinyin()
       val rT:ListPinyin = if(tlang.equals("zh")) ListPinyin(getPinYinKtor(transText)) else ListPinyin()
       return OriginalTrans(txt,transText,rT, rO)
-}
+}*/
 
 
 
 fun getFreeTranslatedText(text: String, olang: String,tlang:String):String{
-    //logger.debug { "text size ${text.length}  original $olang  translated $tlang"  }
-    //  println("gettranslatedText  original->'$text' olang-> '$olang'  trans-> '$tlang'")
-    //  throw java.lang.Exception("Not today")
-    //val lOriginalTrans= mutableListOf<OriginalTrans>()
-    //if(olang.equals(tlang)){
-    //    val ls=text.split(". ")
-    //    ls.forEach {
-    //        val s= "$it. "
-    //        lOriginalTrans.add(OriginalTrans(s,s))
-    //    }
-    //    return lOriginalTrans
-    //}
-
-    //if(text.length==0) return lOriginalTrans //????
     if(text.isEmpty()) return ""
     val url =
         "https://translate.googleapis.com/translate_a/single?client=gtx&sl=" + "$olang" + "&tl=" + "$tlang" + "&dt=t&q=" + URLEncoder.encode(
@@ -479,10 +554,8 @@ fun getFreeTranslatedText(text: String, olang: String,tlang:String):String{
             "utf-8"
         )
     val d = Jsoup.connect(url).ignoreContentType(true).get().text()
-
     val lTrans= kjson.parseToJsonElement(d)
-
-    var tText=""
+     var tText=""
     if(lTrans is JsonNull) return "" //lOriginalTrans    // si rebem un text buit la traduccio tambe ho sera millor a lentrada
     val qsm=lTrans.jsonArray[0] as JsonArray
     for(i in 0 until qsm.size){
@@ -500,21 +573,17 @@ fun getFreeTranslatedText(text: String, olang: String,tlang:String):String{
     return tText
 }
 
-fun gettranslatedText(text: String, olang: String,tlang:String):List<OriginalTrans>  {
+suspend fun getFreetranslatedTextPy(text: String, olang: String, tlang:String):List<OriginalTrans>  {
     logger.debug { "text size ${text.length}  original $olang  translated $tlang"  }
-  //  println("gettranslatedText  original->'$text' olang-> '$olang'  trans-> '$tlang'")
-  //  throw java.lang.Exception("Not today")
     val lOriginalTrans= mutableListOf<OriginalTrans>()
     if(olang.equals(tlang)){
         val ls=text.split(". ")
         ls.forEach {
             val s= "$it. "
-            lOriginalTrans.add(OriginalTrans(s,s))
+            lOriginalTrans.add(OriginalTrans(s,""))
         }
         return lOriginalTrans
     }
-
-
     if(text.length==0) return lOriginalTrans //????
     val url =
         "https://translate.googleapis.com/translate_a/single?client=gtx&sl=" + "$olang" + "&tl=" + "$tlang" + "&dt=t&q=" + URLEncoder.encode(
@@ -522,71 +591,74 @@ fun gettranslatedText(text: String, olang: String,tlang:String):List<OriginalTra
             "utf-8"
         )
     val d = Jsoup.connect(url).ignoreContentType(true).get().text()
-    //val lTrans=Json(JsonConfiguration.Stable).parseJson(d)
     val lTrans= kjson.parseToJsonElement(d)
-    //println("tlang->$tlang")
-
     if(lTrans is JsonNull) return lOriginalTrans    // si rebem un text buit la traduccio tambe ho sera millor a lentrada
     val qsm=lTrans.jsonArray[0] as JsonArray
     for(i in 0 until qsm.size){
         val l= qsm[i].jsonArray
         val z1=l[1].toString()
-        val z2=z1.subSequence(1,z1.length-1).toString()
+        val z2=z1.subSequence(1,z1.length-1).toString().replace("\\","")
         //println("uno->${l[1]}")
         //println("cero->${l[0].toString().replace("\\","")}")
         val s2=l[0].toString().replace("\\","")
         val s3=s2.subSequence(1,s2.length-1).toString()
         lOriginalTrans.add(OriginalTrans(z2,s3))
     }
-    logger.debug {"translation: ${lOriginalTrans.print("Before AddPinYin", 2, 0)} "}
+//    logger.debug {"translation: ${lOriginalTrans.print("Before AddPinYin", 2, 0)} "}
     if(tlang.equals("zh") || tlang.equals("zh-TW"))  return addPinyinOT(lOriginalTrans,false)
     if(olang.equals("zh")) return addPinyinOT(lOriginalTrans,true)
     return lOriginalTrans
 
 }
-fun addPinyinOT(thl:List<OriginalTrans>,original:Boolean):List<OriginalTrans>{
+suspend fun  addPinyinOT(thl:List<OriginalTrans>,original:Boolean):List<OriginalTrans>{
 //    thl.forEachIndexed { index, it ->  if(index<5) getPinying(it) }
-    //val scope= CoroutineScope(Job()+Dispatchers.Default)
-    lateinit var L:List<OriginalTrans>
+    val scope= CoroutineScope(Job()+Dispatchers.IO)
+    logger.warn { "addpinyinOT original=$original" }
+//    logger.debug{thl.print("argument of addPinyinOT ")}
+
+    var L:List<OriginalTrans> = emptyList()
     val time = measureTimeMillis {
-        runBlocking(Dispatchers.IO) {
-            //val l = scope.launch {
+    //    runBlocking(Dispatchers.IO) {
+            val l = scope.launch {
 
             L = if(original) thl.pmap { it -> it.copy(romanizedo = ListPinyin(getPinYinKtor(it.original))) }
             else thl.pmap { it -> it.copy(romanizedt = ListPinyin(getPinYinKtor(it.translated))) }
             //}
         }
+        l.join()
     }
-    logger.debug {"pinyin time $time"}
+    logger.debug {"addPinyinOT pinyin time $time"}
     return L
 
     //return thl.map { it->getPinying(it) }
 }
 
-fun addPinyinOTL(thl:List<OriginalTransLink>,original:Boolean):List<OriginalTransLink>{
+suspend fun addPinyinOTL(thl:List<OriginalTransLink>,original:Boolean):List<OriginalTransLink>{
 //    thl.forEachIndexed { index, it ->  if(index<5) getPinying(it) }
-    //val scope= CoroutineScope(Job()+Dispatchers.Default)
-    lateinit var L:List<OriginalTransLink>
-
+    val scope= CoroutineScope(Job()+Dispatchers.IO)
+    var L:List<OriginalTransLink> = emptyList()
+    logger.warn { "addPinYinOTL" }
     val time = measureTimeMillis {
-        runBlocking(Dispatchers.IO) {
-            //val l = scope.launch {
-            L = if(original) thl.pmap { it -> it.copy(romanizedo=ListPinyin(getPinYinKtor(it.kArticle.title))) }
+   //     runBlocking(Dispatchers.IO) {
+            val l = scope.launch {
+             L = if(original) thl.pmap { it -> it.copy(romanizedo=ListPinyin(getPinYinKtor(it.kArticle.title))) }
             else thl.pmap { it -> it.copy(romanizedt  =ListPinyin(getPinYinKtor(it.translated))) }
             //}
         }
+        l.join()
     }
-    println("addPinyinOTL pinyin time $time   total elements : ${thl.size}")
-    L.print("AFTER PINYIN")
+    logger.debug{"addPinyinOTL pinyin time $time   total elements : ${thl.size}"}
     return L
 
     //return thl.map { it->getPinying(it) }
 }
 
 
-fun getPinYinKtor(s:String):List<Pinyin>{
-    val cx = try {
-        runBlocking {
+suspend fun getPinYinKtor(s:String):List<Pinyin>{
+//    logger.debug { s }
+    val cx:List<Pinyin> = try {
+        //runBlocking {
+            //logger.debug { "getpinyinktor" }
             val cli = HttpClient() {}
             val r=cli.submitForm<HttpResponse> (
                 url = "https://www.chinese-tools.com/tools/pinyin.html",
@@ -597,14 +669,16 @@ fun getPinYinKtor(s:String):List<Pinyin>{
             )
             val t=r.readText()
             val d= Jsoup.parse(t)
-            val CPINYNG=d.select("div.pinyinPinyin")?.zip(d.select("div.pinyinChinese")){b,a->Pinyin(a.text(),b.text())}
+            val CPINYNG=d.select("div.pinyinPinyin")?.zip(d.select("div.pinyinChinese")){b,a->Pinyin(a.text(),b.text())} ?: emptyList()
             cli.close()
-            return@runBlocking CPINYNG
-        }
+           // logger.debug { "pinyin ok" }
+            return CPINYNG
+        //}
     }catch (e: java.lang.Exception){
-        logger.debug { e }
+        logger.error { "$s $e" }
+        emptyList<Pinyin>()
     }
-    return cx as List<Pinyin>
+    return cx //as List<Pinyin>
 }
 
 
@@ -642,17 +716,17 @@ fun getPinYinJsoup(s:String):List<Pinyin>{
 }
 
 fun JsonToListStrings(json:String):List<Translations>{
-    logger.debug{"JSON------(from this shit obtained by gg to List<Translations>)------------------->>> $json"}
+//     logger.debug{"JSON------(from this shit obtained by gg to List<Translations>)------------------->>> $json"}
     val topic= kjson.decodeFromString(Json4Kotlin_Base.serializer(),json)
     return topic.data.translations
 }
 
-private fun translateJson2(sjason:jsonTrans): List<Translations> {
+fun translateJson2(sjason:jsonTrans): List<Translations> {
     val apikey="AIzaSyBP1dsYp-jPF6PfVetJWcguNLiFouZ3mjo"
     val sUrl="https://www.googleapis.com/language/translate/v2?key=$apikey"
     //Timber.d("URL: $sUrl")
     //println("->json: $sjason")
-    logger.debug { "\ntranslate json2 ->  $sjason"}
+    //logger.debug { "\ntranslate json2 ->  $sjason"}
     val cr= Jsoup.connect(sUrl)
         .header("Content-Type","application/json; charset=utf-8")
         .header("Accept","application/json")
@@ -665,8 +739,79 @@ private fun translateJson2(sjason:jsonTrans): List<Translations> {
     return JsonToListStrings(cr.body())
 }
 
-fun translatePayString(txt:String,olang:String,tlang:String):String{
+suspend fun transPayListOfParagraphs(lop:List<String>,olang: String,tlang: String):List<OriginalTrans> {
+    var lOT= mutableListOf<OriginalTrans>()
+    val listOflistStrings=lop.chunked(50)
 
-    return translateJson2(jsonTrans(listOf(txt),olang,tlang,"text"))[0].translatedText
+    listOflistStrings.forEachIndexed{i,ls ->
+        val lA=translateJson2(jsonTrans(ls,olang,tlang,"text"))
+        var lR=ls.zip(lA){a,b->OriginalTrans(a,b.translatedText)}
 
+        if(tlang.equals("zh")){
+            lR=addPinyinOT(lR,false)
+            lR.toMutableList().add(OriginalTrans("PINYIN ENABLED!!!!"))
+            //return lOT2
+        }
+
+        lOT.addAll(lR)
+    }
+
+    return lOT
+}
+
+fun splitLongText2(text:String):List<String>{
+    val maxlen=3000
+    val resultList= mutableListOf<String>()
+    var LS = mutableListOf<String>()
+    if(text.length<maxlen) { LS.add(text.toString()); return LS}
+
+
+    LS= text.split(".") as MutableList<String>
+    //logger.debug(LS.print("Sentences"))
+    val bs=StringBuilder()
+    while(LS.size>0){
+        val txt=LS.removeAt(0)
+        if((txt.length+bs.length)<maxlen){
+            bs.append(txt)
+            bs.append(". ")
+        }else{
+            //bs.append(". ")
+            resultList.add(bs.toString())
+            bs.clear()
+            bs.append(txt)
+            bs.append(". ")
+            if(text[txt.length].equals("."))
+                bs.append("x. ")
+        }
+    }
+    if(bs.length>0) resultList.add(bs.toString())
+    return resultList
+}
+
+
+suspend fun translateFreeListOfParagraphs(text:String, olang: String, tlang: String):List<OriginalTrans>{
+    logger.error{"-----FREE FREE FREE !!!!  ------"}
+    val lp= splitLongText2(text)
+    logger.debug { "translateFreeListOfParagraphs ${lp.size}  $olang $tlang" }
+    logger.debug { lp.print("splited text") }
+
+    val lOriginalTrans= mutableListOf<OriginalTrans>()
+    lp.forEach {
+        lOriginalTrans.addAll(getFreetranslatedTextPy(it,olang,tlang))
+    }
+    logger.debug { lOriginalTrans.print("Result") }
+    return lOriginalTrans
+}
+
+
+
+suspend fun XgetTranslatedString(txt:String,olang:String,tlang: String):OriginalTrans{
+    if(olang==tlang) return OriginalTrans()
+    val l  = try {
+        //getFreetranslatedTextPy(txt,olang,tlang)
+        transPayListOfParagraphs(listOf(txt),olang,tlang)
+    }catch (e:Exception){
+        transPayListOfParagraphs(listOf(txt),olang,tlang)
+    }
+    return l[0]
 }

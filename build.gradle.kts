@@ -3,10 +3,10 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 //import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    id("com.github.ben-manes.versions") version "0.38.0"
+    id("com.github.ben-manes.versions") version "0.39.0"
     `java-library`
-    kotlin("jvm") version("1.4.31")
-    kotlin("plugin.serialization") version "1.4.31"
+    kotlin("jvm") version("1.5.10")
+    kotlin("plugin.serialization") version "1.5.10"
 
 }
 
@@ -22,7 +22,7 @@ repositories {
         }
     }
     mavenCentral()
-    jcenter()  //without it jsoup wont load!!
+    //jcenter()  //without it jsoup wont load!!
 }
 
 
@@ -36,8 +36,10 @@ dependencies {
     implementation("io.ktor:ktor-client-serialization-jvm")
     implementation("io.ktor:ktor-client-encoding")
     implementation("io.ktor:ktor-client-logging-jvm")
-    implementation("io.ktor:ktor-client-android")
+    //implementation("io.ktor:ktor-client-android")
     //implementation("io.ktor:ktor-client-okhttp")
+    implementation("io.ktor:ktor-client-cio")
+
     implementation("org.jsoup:jsoup")
     implementation("ch.qos.logback:logback-classic")
     implementation("io.github.microutils:kotlin-logging-jvm")
@@ -57,5 +59,6 @@ compileTestKotlin.kotlinOptions {
 val compileKotlin: KotlinCompile by tasks
 compileKotlin.kotlinOptions {
     //freeCompilerArgs = listOf("-XXLanguage:+InlineClasses")
-    freeCompilerArgs = listOf("-Xinline-classes")
+    jvmTarget = "1.8"
+    //freeCompilerArgs = listOf("-Xinline-classes")
 }
