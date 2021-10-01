@@ -1,17 +1,16 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
-//import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-
 plugins {
     id("com.github.ben-manes.versions") version "0.39.0"
+    kotlin("jvm") version("1.5.30")
+    kotlin("plugin.serialization") version "1.5.30"
+    // id("kkorg.jetbrains.kotlin.plugin.serialization") version "1.5.30"
     `java-library`
-    kotlin("jvm") version("1.5.10")
-    kotlin("plugin.serialization") version "1.5.10"
 
 }
 
 group="com.begemot"
-//version '1.0-SNAPSHOT'
+version="1.0"
 
 repositories {
     mavenLocal(){

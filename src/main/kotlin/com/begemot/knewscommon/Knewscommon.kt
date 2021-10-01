@@ -58,6 +58,7 @@ interface IBaseNewsPaper {
     val desc: String
     val logoName: String
     val handler: String
+        get() = this::class.java.simpleName
     val url:String
     fun getOriginalHeadLines(): List<KArticle> { return emptyList<KArticle>()  }
     fun getOriginalArticle(link: String): String { return "" }
@@ -71,7 +72,7 @@ interface INewsPaper : IBaseNewsPaper {
 }
 
 interface IBook:IBaseNewsPaper{
-    val directory:String
+    val googleDir:String
     override val kind: KindOfNews
         get()=KindOfNews.BOOK
 }
@@ -131,7 +132,7 @@ data class NewsPaperVersion(val version: Int=0, val newspaper: List<NewsPaper> =
    //     return "Aqui mano jo"
    //  }
     fun toString2():String{
-       return "Aqui mano jo\nVersion $version\n${newspaper.print()}"
+       return "News Paper Version $version\n${newspaper.print()}"
     }
 }
 
@@ -156,7 +157,7 @@ data class KArticle(val title: String = "", val link: String = "")
 data class OriginalTransLink(
     val kArticle: KArticle=KArticle(),
     val translated: String = "",
-    val romanizedo: ListPinyin = ListPinyin(),
+     val romanizedo: ListPinyin = ListPinyin(),
     val romanizedt: ListPinyin = ListPinyin(),
 
 ){
@@ -190,12 +191,12 @@ data class ListPinyin(val lPy:List<Pinyin> = emptyList()){
 }
 
 @JvmName("printString")
-fun List<String>.print(sAux:String="", amount:Int=2):String{
+fun List<String>.print(sAux:String="", amount:Int=2,sorted:Boolean=false):String{
     val sB=StringBuilder()
     sB.append("\n${sAux} printing first $amount items of List<String> of ${this.size}\n")
-    val total=if(amount>size) size else amount
-
-    subList(0,total).forEachIndexed { i, it->
+    val total=if(amount>size || amount==0) size else amount
+    val l=if(sorted) this.sortedByDescending { it.length } else this
+    l.subList(0,total).forEachIndexed { i, it->
         val s= i.toString().padStart(3,' ')
         sB.append("($s) ${it.length.toString().padStart(4,' ')} '${it}'\n")
     }
@@ -716,12 +717,13 @@ fun getPinYinJsoup(s:String):List<Pinyin>{
 }
 
 fun JsonToListStrings(json:String):List<Translations>{
-//     logger.debug{"JSON------(from this shit obtained by gg to List<Translations>)------------------->>> $json"}
+    //logger.debug{"JSON------(from this shit obtained by gg to List<Translations>)------------------->>> $json"}
     val topic= kjson.decodeFromString(Json4Kotlin_Base.serializer(),json)
     return topic.data.translations
 }
 
 fun translateJson2(sjason:jsonTrans): List<Translations> {
+    logger.debug { "TRANSLATEJSON2" }
     val apikey="AIzaSyBP1dsYp-jPF6PfVetJWcguNLiFouZ3mjo"
     val sUrl="https://www.googleapis.com/language/translate/v2?key=$apikey"
     //Timber.d("URL: $sUrl")
