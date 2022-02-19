@@ -26,6 +26,7 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.util.*
 import io.ktor.util.date.*
+import kotlinx.serialization.json.JsonNull.serializer
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 
@@ -43,10 +44,10 @@ import java.io.IOException
 
 private val logger = KotlinLogging.logger {}
 
-val kjson = Json { encodeDefaults = true; ignoreUnknownKeys = true }
+val kjson = Json { encodeDefaults = false; ignoreUnknownKeys = true;   }
 
 enum class KindOfNews{
-    NEWS,BOOK
+    NEWS,BOOK,SONGS
 }
 
 
@@ -54,14 +55,20 @@ enum class KindOfNews{
 interface IBaseNewsPaper {
     val kind:KindOfNews
     val olang: String
+//        get() = ""
     val name: String
     val desc: String
     val logoName: String
     val handler: String
         get() = this::class.java.simpleName
     val url:String
+    val mutable:Boolean
+        get() = false
+
+    val xpos:String
+        get() ="xpos"
     fun getOriginalHeadLines(): List<KArticle> { return emptyList<KArticle>()  }
-    fun getOriginalArticle(link: String): String { return "" }
+    fun getOriginalArticle(link: String): String { return "IBaseNewsPaper" }
 
 }
 
@@ -77,10 +84,17 @@ interface IBook:IBaseNewsPaper{
         get()=KindOfNews.BOOK
 }
 
+interface ISongs:IBaseNewsPaper{
+    val googleDir:String
+    override val kind: KindOfNews
+        get()=KindOfNews.SONGS
+}
+
+
 
 @Serializable
 @SerialName("NEWS")
-class NewsPaper(
+class  NewsPaper(
     override val kind: KindOfNews=KindOfNews.NEWS,
     override val olang: String,
     override val name: String,
@@ -88,9 +102,11 @@ class NewsPaper(
     override val logoName: String,
     override val handler: String,
     override val url: String,
+    override val mutable: Boolean
 
 ) : IBaseNewsPaper{
     override fun toString():String="Hola"
+    //override val mutable: Boolean = false
 }
 
 
@@ -104,10 +120,14 @@ data class Book(
     override val logoName: String,
     override val handler: String,
     override val url: String
-) : IBaseNewsPaper
+) : IBaseNewsPaper{
+    //override val mutable: Boolean = false
+}
 
 fun IBaseNewsPaper.toNewsPaper(): NewsPaper {
     return NewsPaper(
+
+        mutable=mutable,
         kind = kind,
         handler = handler,
         name = name,

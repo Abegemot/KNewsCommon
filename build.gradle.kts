@@ -1,9 +1,9 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    id("com.github.ben-manes.versions") version "0.39.0"
-    kotlin("jvm") version("1.5.30")
-    kotlin("plugin.serialization") version "1.5.30"
+    id("com.github.ben-manes.versions") version "0.42.0"
+    kotlin("jvm") version("1.6.10")
+    kotlin("plugin.serialization") version "1.6.10"
     // id("kkorg.jetbrains.kotlin.plugin.serialization") version "1.5.30"
     `java-library`
 
@@ -12,7 +12,7 @@ plugins {
 group="com.begemot"
 version="1.0"
 
-repositories {
+/*repositories {
     mavenLocal(){
         metadataSources {
             mavenPom()
@@ -22,11 +22,12 @@ repositories {
     }
     mavenCentral()
     //jcenter()  //without it jsoup wont load!!
-}
+}*/
 
 
 dependencies {
-    implementation(platform("com.begemot.knewsplatform-bom:deps:0.0.1"))
+    //implementation(platform("com.begemot.knewsplatform-bom:deps:0.0.1"))
+    implementation(platform("com.begemota:sharedlibrary"))
     implementation("org.jetbrains.kotlin:kotlin-stdlib")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-core")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json")
