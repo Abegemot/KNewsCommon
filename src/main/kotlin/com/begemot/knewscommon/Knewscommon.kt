@@ -105,7 +105,7 @@ class  NewsPaper(
     override val mutable: Boolean
 
 ) : IBaseNewsPaper{
-    override fun toString():String="Hola"
+    override fun toString():String="${this.handler} ${this.kind} ${this.olang} ${this.desc} ${this.logoName} ${this.url}"
     //override val mutable: Boolean = false
 }
 
@@ -141,8 +141,11 @@ fun IBaseNewsPaper.toNewsPaper(): NewsPaper {
 
 fun List<NewsPaper>.print():String{
     val sb=StringBuilder()
-    this.forEach { it->sb.append("${it.handler} ${it.kind} ${it.olang} ${it.desc} ${it.logoName} ${it.url}  \n") }
-    return sb.toString()
+    if(this.isEmpty()){sb.append("{empty}"); sb.append("\n           YO")}
+    this.forEach { it->sb.append("           ${it}\n") }
+
+    // this.forEach { it->sb.append("           ${it.handler} ${it.kind} ${it.olang} ${it.desc} ${it.logoName} ${it.url}  \n") }
+    return sb.toString()//.padStart(75,'q')
 }
 
 
@@ -152,7 +155,8 @@ data class NewsPaperVersion(val version: Int=0, val newspaper: List<NewsPaper> =
    //     return "Aqui mano jo"
    //  }
     fun toString2():String{
-       return "News Paper Version $version\n${newspaper.print()}"
+       return """News Paper Version $version 
+                 ${newspaper.print()}"""
     }
 }
 
@@ -183,6 +187,10 @@ data class OriginalTransLink(
 ){
     fun getShortenedLinkName():String {
         return ""
+    }
+
+    override fun toString(): String {
+        return "$kArticle translated $translated romanized Orig $romanizedo romanized Trans $romanizedt"
     }
 }
 
@@ -245,7 +253,8 @@ fun List<OriginalTransLink>.print(sAux:String="",amount:Int=2):String{
     val sB=StringBuilder()
     sB.append("\n$sAux begin print first $amount List<OriginalTransLink> out of $size\n")
     val total=if(amount>size) size else amount
-    subList(0,total).forEachIndexed { i,it->sB.append("($i) ${it.kArticle.title}\n  ${it.kArticle.link}\n  trans->${it.translated}\n  romanOrig->${it.romanizedo}\n  romanTrans->${it.romanizedt}  end\n") }
+    subList(0,total).forEachIndexed { i,it->sB.append("($i) ${it}\n") }
+//    subList(0,total).forEachIndexed { i,it->sB.append("($i) ${it.kArticle.title}\n  ${it.kArticle.link}\n  trans->${it.translated}\n  romanOrig->${it.romanizedo}\n  romanTrans->${it.romanizedt}  end\n") }
     sB.append("end print first $total of List<OriginalTransLink>  out of $size\n")
     return sB.toString()
 }
@@ -310,6 +319,8 @@ inline class JListKArticle(val str: String)
 inline class JListOriginalTransLink(val str: String)
 inline class JListNewsPaper(val str: String)
 
+//@JvmInline
+//value class DirFileName(val str: String)
 
 //fun fromJsonToList(str: JListKArticle): List<KArticle> =
 //    kjson.decodeFromString(ListSerializer(KArticle.serializer()), (str.str))
@@ -333,6 +344,9 @@ fun List<OriginalTrans>.toJSON():JListOriginalTrans=JListOriginalTrans(kjson.enc
 
 fun List<String>.toJSON2():JListString=JListString(kjson.encodeToString(ListSerializer(String.serializer()), this))
 
+inline fun <reified T> toStr(t:T):String{
+    return kjson.encodeToString<T>(t)
+}
 
 fun toJListNewsPaper(list: List<NewsPaper>) =  JListNewsPaper(kjson.encodeToString(ListSerializer(NewsPaper.serializer()), list))
 
@@ -399,11 +413,30 @@ sealed class KResult<T, R> {
     //object Empty : KResult<Nothing, Nothing>()
 }
 
+sealed class KResult3<T> {
+    class   Success<T>(val t: T, var clientTime:Long=0, val serverTime:Long=0) : KResult3<T>() {
+        override fun msg(): String { return "SUCCES->${clientTime.milisToSec()}" }
+        override fun timeInfo():String = "cli $clientTime srv ${serverTime}  (${clientTime-serverTime}) ms"
+        override fun setclitime(t:Long){ clientTime=t }
+    }
+    class Error<T>(val msg: String, var clientTime:Long=0,val serverTime: Long=0) : KResult3<T>(){
+        override fun msg():String{ return "ERROR->${clientTime.milisToSec()}\nmsg"}
+        override fun timeInfo():String = "cli $clientTime srv ${serverTime}  (${clientTime-serverTime})"
+        override fun setclitime(t:Long){ clientTime=t }
+    }
+    open fun msg():String=""
+    open fun timeInfo():String=""
+    open fun setclitime(t:Long){}
+    //object Empty : KResult<Nothing, Nothing>()
+}
+
+
+
 //@Serializable
 sealed class KResult2<T, R> {
     class   Success<T, R>(val t: T, val clientTime:Long=0, val serverTime:Long=0) : KResult2<T, R>() {
         override fun msg(): String { return "SUCCES->${clientTime.milisToSec()}" }
-        override fun timeInfo():String = "cli $clientTime srv ${serverTime}  (${clientTime-serverTime})"
+        override fun timeInfo():String = "cli $clientTime srv ${serverTime}  (${clientTime-serverTime}) ms"
 
     }
     class Error<T, R>(val msg: String, val clientTime:Long=0,val serverTime: Long=0) : KResult2<T, R>(){
@@ -541,10 +574,11 @@ class KTimer(){
     var end=0L
     init{
         start = System.currentTimeMillis()
+        //println("--->KTimer.create = start $start")
     }
     fun getElapsed():Long{
         if(end==0L) end=System.currentTimeMillis()-start
-
+        //println("--->KTimer.getElapsed = $end start $start")
         return end
     }
 }
@@ -837,3 +871,5 @@ suspend fun XgetTranslatedString(txt:String,olang:String,tlang: String):Original
     }
     return l[0]
 }
+
+//Max 855
