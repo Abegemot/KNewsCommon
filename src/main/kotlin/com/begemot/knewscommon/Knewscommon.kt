@@ -420,13 +420,18 @@ sealed class KResult3<T> {
         override fun setclitime(t:Long){ clientTime=t }
     }
     class Error<T>(val msg: String, var clientTime:Long=0,val serverTime: Long=0) : KResult3<T>(){
-        override fun msg():String{ return "ERROR->${clientTime.milisToSec()}\nmsg"}
+        override fun msg():String = "ERROR->$msg client time ($clientTime)ms"
         override fun timeInfo():String = "cli $clientTime srv ${serverTime}  (${clientTime-serverTime})"
         override fun setclitime(t:Long){ clientTime=t }
+    }
+    class VoidSucces(var clientTime:Long=0):KResult3<Nothing>()
+    {
+
     }
     open fun msg():String=""
     open fun timeInfo():String=""
     open fun setclitime(t:Long){}
+
     //object Empty : KResult<Nothing, Nothing>()
 }
 
