@@ -413,24 +413,50 @@ sealed class KResult<T, R> {
     //object Empty : KResult<Nothing, Nothing>()
 }
 
-sealed class KResult3<T> {
-    class   Success<T>(val t: T, var clientTime:Long=0, val serverTime:Long=0) : KResult3<T>() {
-        override fun msg(): String { return "SUCCES->${clientTime.milisToSec()}" }
-        override fun timeInfo():String = "cli $clientTime srv ${serverTime}  (${clientTime-serverTime}) ms"
-        override fun setclitime(t:Long){ clientTime=t }
+sealed class KResult4<T>{
+    class Succes<T>(val t:T) : KResult4<T>(){
+        fun X():String=" "
     }
-    class Error<T>(val msg: String, var clientTime:Long=0,val serverTime: Long=0) : KResult3<T>(){
-        override fun msg():String = "ERROR->$msg client time ($clientTime)ms"
-        override fun timeInfo():String = "cli $clientTime srv ${serverTime}  (${clientTime-serverTime})"
-        override fun setclitime(t:Long){ clientTime=t }
-    }
-    class VoidSucces(var clientTime:Long=0):KResult3<Nothing>()
-    {
+}
 
+
+fun a(i:Int):Result<Unit>{
+    return Result.success<Unit>(Unit)
+    return Result.failure(Exception("kkd"))
+}
+
+//class   Success3<T>(val t: T, var clientTime:Long=0, val serverTime:Long=0) : KResult3<T>() {
+//}
+
+sealed class KResult3<T> {
+    class   Success<T>(val t: T,var name:String="", var clientTime:Long=0, val serverTime:Long=-1) : KResult3<T>() {
+        override fun msg(): String =  _msg("SUCCES!!",name)
+        //override fun timeInfo():String = "cli $clientTime srv ${serverTime}  (${clientTime-serverTime}) ms"
+        override fun timeInfo():String = _timeInfo(clientTime,serverTime)
+        override fun setclitime(t:Long){ clientTime=t }
+        override fun getclitime(): Long = clientTime
+
+    }
+    class Error<T>(val msg: String,var name:String="", var clientTime:Long=0,val serverTime: Long=-1) : KResult3<T>(){
+        override fun msg():String = _msg("ERROR!! $msg",name)//"ERROR->$msg client time ($clientTime)ms"
+        //override fun timeInfo():String = "cli $clientTime srv ${serverTime}  (${clientTime-serverTime})"
+        override fun timeInfo():String = _timeInfo(clientTime,serverTime)
+        override fun setclitime(t:Long){ clientTime=t }
+        override fun getclitime(): Long = clientTime
     }
     open fun msg():String=""
     open fun timeInfo():String=""
     open fun setclitime(t:Long){}
+    open fun getclitime():Long=0L
+    fun _timeInfo(clitime:Long,srvtime:Long):String {
+        var ans=""
+        if(srvtime==-1L) ans="cli ($clitime) ms"
+        else ans="cli ($clitime) srv ($srvtime)  lat=(${clitime-srvtime}) ms"
+        return ans
+    }
+
+    inline fun _msg(msg:String,name:String):String = "$msg $name -> ${timeInfo()}"
+    //open fun toUnit():KResult3<Unit>{ return KResult3.Success(Unit,"unknow name",this.getclitime(),888 )}
 
     //object Empty : KResult<Nothing, Nothing>()
 }
@@ -877,4 +903,4 @@ suspend fun XgetTranslatedString(txt:String,olang:String,tlang: String):Original
     return l[0]
 }
 
-//Max 855
+//Max 855 896

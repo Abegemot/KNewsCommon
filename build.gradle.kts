@@ -2,8 +2,8 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     id("com.github.ben-manes.versions") version "0.42.0"
-    kotlin("jvm") version("1.6.10")
-    kotlin("plugin.serialization") version "1.6.10"
+    kotlin("jvm") version("1.6.20")
+    kotlin("plugin.serialization") version "1.6.20"
     // id("kkorg.jetbrains.kotlin.plugin.serialization") version "1.5.30"
     `java-library`
 
