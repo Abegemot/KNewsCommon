@@ -20,15 +20,9 @@ import kotlin.system.measureTimeMillis
 import mu.KotlinLogging
 import org.jsoup.nodes.Document
 import io.ktor.client.*
-import io.ktor.client.request.*
 import io.ktor.client.request.forms.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
-import io.ktor.util.*
-import io.ktor.util.date.*
-import kotlinx.serialization.json.JsonNull.serializer
-import kotlinx.serialization.modules.SerializersModule
-import kotlinx.serialization.modules.polymorphic
 
 
 import java.io.IOException
@@ -64,30 +58,37 @@ interface IBaseNewsPaper {
     val url:String
     val mutable:Boolean
         get() = false
-
     val xpos:String
         get() ="xpos"
+    val googleDir:String
+        get() = ""
     fun getOriginalHeadLines(): List<KArticle> { return emptyList<KArticle>()  }
     fun getOriginalArticle(link: String): String { return "IBaseNewsPaper" }
-
+    fun getGoogleHeadLinesDir():String{return "HeadLines/$handler"}  //<-- aqui es final
+    fun getGoogleArticlesDir():String {return "Articles/$googleDir/$handler/"}
 }
 
 
 interface INewsPaper : IBaseNewsPaper {
     override val kind: KindOfNews
         get()=KindOfNews.NEWS
+    override fun getGoogleArticlesDir():String{return "Articles/$handler"}
 }
 
 interface IBook:IBaseNewsPaper{
-    val googleDir:String
+    //val googleDir:String
     override val kind: KindOfNews
         get()=KindOfNews.BOOK
+    override fun getGoogleArticlesDir():String{return "Books/${googleDir}/$handler"}
+//"Books/${iBook.googleDir}/${iBook.handler}$link"
 }
 
 interface ISongs:IBaseNewsPaper{
-    val googleDir:String
+    //val googleDir:String
     override val kind: KindOfNews
         get()=KindOfNews.SONGS
+    override fun getGoogleArticlesDir():String{return "SongLists/${googleDir}/$handler"}
+
 }
 
 
@@ -167,15 +168,17 @@ data class GetHeadLines(val handler: String, val tlang: String, val datal: Long)
 }
 
 @Serializable
-data class GetArticle(val handler: String, val tlang: String, val link: String)
+data class GetArticle(val handler: String, val tlang: String, val link: String,var clientdate:Long=0L)
 
 
 @Serializable
 data class StoreFile(val filename: String, val content: String)
 
 @Serializable
-data class KArticle(val title: String = "", val link: String = "")
+class KArticle(val title: String = "", val link: String = "", val l2:String = "")
 
+@Serializable
+class KArticle2(val title: String = "", val link: String = "")
 
 @Serializable
 data class OriginalTransLink(
@@ -313,11 +316,11 @@ data class THeadLine(val ot:OriginalTrans,val lnk: String){}
 
 
 
-inline class JListOriginalTrans(val str: String)
-inline class JListString(val str: String)
-inline class JListKArticle(val str: String)
-inline class JListOriginalTransLink(val str: String)
-inline class JListNewsPaper(val str: String)
+//inline class JListOriginalTrans(val str: String)
+//inline class JListString(val str: String)
+//inline class JListKArticle(val str: String)
+//inline class JListOriginalTransLink(val str: String)
+//inline class JListNewsPaper(val str: String)
 
 //@JvmInline
 //value class DirFileName(val str: String)
@@ -325,39 +328,44 @@ inline class JListNewsPaper(val str: String)
 //fun fromJsonToList(str: JListKArticle): List<KArticle> =
 //    kjson.decodeFromString(ListSerializer(KArticle.serializer()), (str.str))
 
-fun JListKArticle.toList():List<KArticle> = kjson.decodeFromString(ListSerializer(KArticle.serializer()), (str))
-fun JListString.toList():List<String> = kjson.decodeFromString(ListSerializer(String.serializer()), (str))
-fun JListOriginalTrans.toList():List<OriginalTrans> =  kjson.decodeFromString(ListSerializer(OriginalTrans.serializer()), (str))
-fun JListOriginalTransLink.toList():List<OriginalTransLink> = kjson.decodeFromString(ListSerializer(OriginalTransLink.serializer()), (str))
+//fun JListKArticle.toList():List<KArticle> = kjson.decodeFromString(ListSerializer(KArticle.serializer()), (str))
+//fun JListString.toList():List<String> = kjson.decodeFromString(ListSerializer(String.serializer()), (str))
+//fun JListOriginalTrans.toList():List<OriginalTrans> =  kjson.decodeFromString(ListSerializer(OriginalTrans.serializer()), (str))
+//fun JListOriginalTransLink.toList():List<OriginalTransLink> = kjson.decodeFromString(ListSerializer(OriginalTransLink.serializer()), (str))
 
-fun JListNewsPaper.toList():List<NewsPaper> = kjson.decodeFromString(ListSerializer(NewsPaper.serializer()), str)
+//fun JListNewsPaper.toList():List<NewsPaper> = kjson.decodeFromString(ListSerializer(NewsPaper.serializer()), str)
 
 //fun fromJsonToList(str: JListNewsPaper): List<NewsPaper> = kjson.decodeFromString(ListSerializer(NewsPaper.serializer()), str.str)
 
 //fun toJListKArticle(list: List<KArticle>): JListKArticle =
 //    JListKArticle(kjson.encodeToString(ListSerializer(KArticle.serializer()), list))
 
-fun List<KArticle>.toJSON4():JListKArticle=JListKArticle(kjson.encodeToString(ListSerializer(KArticle.serializer()), this))
-fun List<OriginalTransLink>.toJSON3():JListOriginalTransLink=JListOriginalTransLink( kjson.encodeToString(ListSerializer(OriginalTransLink.serializer()),this ))
+//fun List<KArticle>.toJSON4():JListKArticle=JListKArticle(kjson.encodeToString(ListSerializer(KArticle.serializer()), this))
+//fun List<OriginalTransLink>.toJSON3():JListOriginalTransLink=JListOriginalTransLink( kjson.encodeToString(ListSerializer(OriginalTransLink.serializer()),this ))
 
-fun List<OriginalTrans>.toJSON():JListOriginalTrans=JListOriginalTrans(kjson.encodeToString(ListSerializer(OriginalTrans.serializer()), this))
+//fun List<OriginalTrans>.toJSON():JListOriginalTrans=JListOriginalTrans(kjson.encodeToString(ListSerializer(OriginalTrans.serializer()), this))
 
-fun List<String>.toJSON2():JListString=JListString(kjson.encodeToString(ListSerializer(String.serializer()), this))
+//fun List<String>.toJSON2():JListString=JListString(kjson.encodeToString(ListSerializer(String.serializer()), this))
 
-inline fun <reified T> toStr(t:T):String{
+inline fun <reified T> toJStr(t:T):String{
     return kjson.encodeToString<T>(t)
 }
 
-fun toJListNewsPaper(list: List<NewsPaper>) =  JListNewsPaper(kjson.encodeToString(ListSerializer(NewsPaper.serializer()), list))
+inline fun <reified T>fromJStr(str:String):T{
+    return kjson.decodeFromString<T>(str)
+}
 
-fun fromStrToTHeadLines(str: String): THeadLines = kjson.decodeFromString<THeadLines>(str)
-fun toStrFromTHeadlines(thd: THeadLines): String = kjson.encodeToString(THeadLines.serializer(), thd)
+
+//fun toJListNewsPaper(list: List<NewsPaper>) =  JListNewsPaper(kjson.encodeToString(ListSerializer(NewsPaper.serializer()), list))
+
+//fun fromStrToTHeadLines(str: String): THeadLines = kjson.decodeFromString<THeadLines>(str)
+//fun toStrFromTHeadlines(thd: THeadLines): String = kjson.encodeToString(THeadLines.serializer(), thd)
 
 
-fun fromStrToNewsPaperV(str:String): NewsPaperVersion = kjson.decodeFromString(str)
-fun toStrFromNewsPaperV(npv:NewsPaperVersion): String = kjson.encodeToString(NewsPaperVersion.serializer(),npv)
-fun NewsPaperVersion.toStr():String = kjson.encodeToString(NewsPaperVersion.serializer(),this)
-fun THeadLines.toStr():String = kjson.encodeToString(THeadLines.serializer(), this)
+//fun fromStrToNewsPaperV(str:String): NewsPaperVersion = kjson.decodeFromString(str)
+//fun toStrFromNewsPaperV(npv:NewsPaperVersion): String = kjson.encodeToString(NewsPaperVersion.serializer(),npv)
+//fun NewsPaperVersion.toJStr():String = kjson.encodeToString(NewsPaperVersion.serializer(),this)
+//fun THeadLines.toJStr():String = kjson.encodeToString(THeadLines.serializer(), this)
 
 
 @Serializable
@@ -379,7 +387,7 @@ data class jsonTrans(
     val format: String
 )
 
-fun jsonTrans.toStr():String = kjson.encodeToString(jsonTrans.serializer(),this)
+fun jsonTrans.toJStr():String = kjson.encodeToString(jsonTrans.serializer(),this)
 
 @Serializable
 data class Data(val translations: List<Translations>)
@@ -464,7 +472,7 @@ sealed class KResult3<T> {
 
 
 //@Serializable
-sealed class KResult2<T, R> {
+/*sealed class KResult2<T, R> {
     class   Success<T, R>(val t: T, val clientTime:Long=0, val serverTime:Long=0) : KResult2<T, R>() {
         override fun msg(): String { return "SUCCES->${clientTime.milisToSec()}" }
         override fun timeInfo():String = "cli $clientTime srv ${serverTime}  (${clientTime-serverTime}) ms"
@@ -477,7 +485,7 @@ sealed class KResult2<T, R> {
     open fun msg():String=""
     open fun timeInfo():String=""
     //object Empty : KResult<Nothing, Nothing>()
-}
+}*/
 
 inline fun <reified T, reified R> exWithException(afun: () -> T): KResult<T, R> {
     return try {
@@ -488,14 +496,14 @@ inline fun <reified T, reified R> exWithException(afun: () -> T): KResult<T, R> 
     }
 }
 
-suspend fun < T,  R> exWithException2(afun: suspend () -> T): KResult2<T, R> {
+/*suspend fun < T,  R> exWithException2(afun: suspend () -> T): KResult2<T, R> {
     return try {
         val p = afun()
         KResult2.Success(p,0,0)
     } catch (e: Exception) {
         KResult2.Error(e.message ?: "", 0L)
     }
-}
+}*/
 
 
 
@@ -566,6 +574,30 @@ fun Long.milisToMinSecMilis(): String {
     stb.append("$milis ms)".padEnd(ln, ' '))
     return stb.toString()
 }
+
+
+fun Long.milisToMinSec(): String {
+    if(this==0L) return "0:0"
+    val stb = StringBuilder()
+    val days = TimeUnit.MILLISECONDS.toDays(this)
+    val hours = TimeUnit.MILLISECONDS.toHours(this) - (24 * days)
+    val minuts = TimeUnit.MILLISECONDS.toMinutes(this) - (60 * hours) - (24 * days * 60)
+    val seconds =
+        TimeUnit.MILLISECONDS.toSeconds(this) - (60 * minuts) - (hours * 60 * 60) - (days * 24 * 60 * 60)
+    val milis =
+        this - (seconds * 1000) - (minuts * 60 * 1000) - (hours * 60 * 60 * 1000) - (days * 24 * 60 * 60 * 1000)
+    val ln = 5
+    /*stb.append('(')
+    if (days > 0) stb.append("$days d".padEnd(ln, ' '))
+    if (hours > 0) stb.append("$hours h".padEnd(ln, ' '))
+    if (minuts > 0) stb.append("$minuts m".padEnd(ln, ' '))
+    if (seconds > 0) stb.append("$seconds s)".padEnd(ln, ' '))*/
+    val seconds2=if(seconds<10) "0$seconds" else "$seconds"
+    stb.append("$minuts:$seconds2")
+   // stb.append("$milis ms)".padEnd(ln, ' '))
+    return stb.toString()
+}
+
 
 fun Long.milisToSec(original: Boolean =false): String {
     val stb = StringBuilder()
@@ -746,14 +778,14 @@ suspend fun getPinYinKtor(s:String):List<Pinyin>{
         //runBlocking {
             //logger.debug { "getpinyinktor" }
             val cli = HttpClient() {}
-            val r=cli.submitForm<HttpResponse> (
+            val r=cli.submitForm (
                 url = "https://www.chinese-tools.com/tools/pinyin.html",
                 formParameters = Parameters.build {
                     append("src",s)
                     append("display","1")
                 }
             )
-            val t=r.readText()
+            val t=r.bodyAsText()
             val d= Jsoup.parse(t)
             val CPINYNG=d.select("div.pinyinPinyin")?.zip(d.select("div.pinyinChinese")){b,a->Pinyin(a.text(),b.text())} ?: emptyList()
             cli.close()
@@ -821,7 +853,7 @@ fun translateJson2(sjason:jsonTrans): List<Translations> {
         .ignoreContentType(true)
         .ignoreHttpErrors(true)
         .method(Connection.Method.POST)
-        .requestBody(sjason.toStr())
+        .requestBody(sjason.toJStr())
         .execute()
     return JsonToListStrings(cr.body())
 }
@@ -903,4 +935,4 @@ suspend fun XgetTranslatedString(txt:String,olang:String,tlang: String):Original
     return l[0]
 }
 
-//Max 855 896
+//Max 855 896 912 938
