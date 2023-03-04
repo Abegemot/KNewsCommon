@@ -1,9 +1,9 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    id("com.github.ben-manes.versions") version "0.42.0"
-    kotlin("jvm") version("1.6.21")
-    kotlin("plugin.serialization") version "1.6.21"
+    id("com.github.ben-manes.versions") version "0.46.0"
+    kotlin("jvm") version("1.7.20")
+    kotlin("plugin.serialization") version "1.7.20"
     // id("kkorg.jetbrains.kotlin.plugin.serialization") version "1.5.30"
     `java-library`
 
@@ -35,14 +35,15 @@ dependencies {
     implementation("io.ktor:ktor-client-core")
     implementation("io.ktor:ktor-client-serialization-jvm")
     implementation("io.ktor:ktor-client-encoding")
-    implementation("io.ktor:ktor-client-logging-jvm")
+   // implementation("io.ktor:ktor-client-logging-jvm")
     //implementation("io.ktor:ktor-client-android")
     //implementation("io.ktor:ktor-client-okhttp")
     implementation("io.ktor:ktor-client-cio")
-
+    api("io.github.microutils:kotlin-logging-jvm")
     implementation("org.jsoup:jsoup")
-    implementation("ch.qos.logback:logback-classic")
-    implementation("io.github.microutils:kotlin-logging-jvm")
+    //implementation("ch.qos.logback:logback-classic")
+    //implementation("io.github.microutils:kotlin-logging-jvm")
+    //implementation("io.github.microutils:kotlin-logging-jvm")
 
 
 }

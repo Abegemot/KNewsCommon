@@ -1,50 +1,78 @@
 package com.begemot.knewscommon
 
-import kotlinx.serialization.*
-import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.builtins.serializer
-import kotlinx.serialization.json.Json
-import java.io.PrintWriter
-import java.io.StringWriter
-import java.text.SimpleDateFormat
-import java.util.concurrent.TimeUnit
-import kotlin.Exception
+import mu.KotlinLogging
+import io.ktor.client.*
+import io.ktor.client.request.forms.*
+import io.ktor.client.statement.*
+import io.ktor.http.*
 import kotlinx.coroutines.*
+import kotlinx.serialization.*
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.jsonArray
 import org.jsoup.Connection
 import org.jsoup.Jsoup
-import java.net.URLEncoder
-import kotlin.system.measureTimeMillis
-import mu.KotlinLogging
 import org.jsoup.nodes.Document
-import io.ktor.client.*
-import io.ktor.client.request.forms.*
-import io.ktor.client.statement.*
-import io.ktor.http.*
-
-
 import java.io.IOException
+import java.io.PrintWriter
+import java.io.StringWriter
+import java.net.URLEncoder
+import java.text.SimpleDateFormat
+import java.util.concurrent.TimeUnit
+import kotlin.system.measureTimeMillis
+val logger = KotlinLogging.logger {}
+
+open  class KNewsException(message:String):Exception(message)
+class KNEBadConnecttion(message: String):KNewsException(message)
+class KNEServerError(message: String,val httpStatusCode: HttpStatusCode,val servertime:Long=0):KNewsException(message)
+
+@Serializable
+class KServerError(val sfun:String,val smesage:String,val sstack:String)
+
+fun <T> logw(kr:KResult<T>,msg:String=""){
+    val sm="$msg ${kr.logInfo()}"
+    kr.res
+        .onSuccess { logger.debug { sm } }
+        .onFailure { logger.error { sm } }
+}
 
 
-/*val modulex= SerializersModule {
-    polymorphic(IBaseNewsPaper::class){
-        subclass(SZ::class,SZ.serializer())
-        subclass(B::class,B.serializer())
+class KResult<T>(val res:Result<T>,val srv_time:Long=-1,val cli_time:Long=-1,val sparams:String="",val origin:String=""){
+    fun timeInfo():String="client ($cli_time) server ($srv_time)  ms"
+    fun logInfo():String{
+        var info=""
+        res.onSuccess { info= "-->succes $origin $it ${timeInfo()}<--end success"}
+        res.onFailure {
+           // info="PATATA"
+           // logger.warn { "AAVALUE=$sparams<-" }
+           // return info
+            val isSrvErr   = it is KNEServerError
+            val kindoError = if(isSrvErr) "Server" else "Client"
+            val stackinfo="""${getStackExceptionMsg(it)}""".trimIndent()
+            val strLog=if(it is KNEServerError){
+                  val srvErr= fromJStr<KServerError>(sparams)
+                      """         Function called --> ${srvErr.sfun}
+                            Status code     --> ${it.httpStatusCode}
+                            Error Message   --> ${srvErr.smesage}
+                            Server Stack    --> ${srvErr.sstack}""".trimIndent()
+                  } else {
+                """-->LocalStack : $stackinfo"""
+            }
+            info = """
+                -->start $kindoError failure at: $origin  ${timeInfo()}
+                   $strLog
+                -->end $kindoError failure"""
+            }
+        return info
     }
-}*/
-
-
-private val logger = KotlinLogging.logger {}
+}
 
 val kjson = Json { encodeDefaults = false; ignoreUnknownKeys = true;   }
 
 enum class KindOfNews{
     NEWS,BOOK,SONGS
 }
-
-
 
 interface IBaseNewsPaper {
     val kind:KindOfNews
@@ -66,6 +94,8 @@ interface IBaseNewsPaper {
     fun getOriginalArticle(link: String): String { return "IBaseNewsPaper" }
     fun getGoogleHeadLinesDir():String{return "HeadLines/$handler"}  //<-- aqui es final
     fun getGoogleArticlesDir():String {return "Articles/$googleDir/$handler/"}
+
+    fun getGoogleFullPath():String{return ""}
 }
 
 
@@ -80,6 +110,7 @@ interface IBook:IBaseNewsPaper{
     override val kind: KindOfNews
         get()=KindOfNews.BOOK
     override fun getGoogleArticlesDir():String{return "Books/${googleDir}/$handler"}
+    override fun getGoogleFullPath(): String {return "Books/${googleDir}/$handler"}
 //"Books/${iBook.googleDir}/${iBook.handler}$link"
 }
 
@@ -90,8 +121,6 @@ interface ISongs:IBaseNewsPaper{
     override fun getGoogleArticlesDir():String{return "SongLists/${googleDir}/$handler"}
 
 }
-
-
 
 @Serializable
 @SerialName("NEWS")
@@ -127,7 +156,6 @@ data class Book(
 
 fun IBaseNewsPaper.toNewsPaper(): NewsPaper {
     return NewsPaper(
-
         mutable=mutable,
         kind = kind,
         handler = handler,
@@ -144,11 +172,9 @@ fun List<NewsPaper>.print():String{
     val sb=StringBuilder()
     if(this.isEmpty()){sb.append("{empty}"); sb.append("\n           YO")}
     this.forEach { it->sb.append("           ${it}\n") }
-
     // this.forEach { it->sb.append("           ${it.handler} ${it.kind} ${it.olang} ${it.desc} ${it.logoName} ${it.url}  \n") }
     return sb.toString()//.padStart(75,'q')
 }
-
 
 @Serializable
 data class NewsPaperVersion(val version: Int=0, val newspaper: List<NewsPaper> = emptyList()){
@@ -161,6 +187,8 @@ data class NewsPaperVersion(val version: Int=0, val newspaper: List<NewsPaper> =
     }
 }
 
+@Serializable
+class ContentPath(val content: String,val path:String)
 
 @Serializable
 data class GetHeadLines(val handler: String, val tlang: String, val datal: Long){
@@ -169,7 +197,6 @@ data class GetHeadLines(val handler: String, val tlang: String, val datal: Long)
 
 @Serializable
 data class GetArticle(val handler: String, val tlang: String, val link: String,var clientdate:Long=0L)
-
 
 @Serializable
 data class StoreFile(val filename: String, val content: String)
@@ -307,73 +334,25 @@ data class THeadLines(val datal: Long = 0, val lhl: List<OriginalTransLink> = em
     }
 }
 
-data class TArticle(val lnk:String="",val lot:List<OriginalTrans> = emptyList()){
-
-}
-
-
-data class THeadLine(val ot:OriginalTrans,val lnk: String){}
-
-
-
-//inline class JListOriginalTrans(val str: String)
-//inline class JListString(val str: String)
-//inline class JListKArticle(val str: String)
-//inline class JListOriginalTransLink(val str: String)
-//inline class JListNewsPaper(val str: String)
-
-//@JvmInline
-//value class DirFileName(val str: String)
-
-//fun fromJsonToList(str: JListKArticle): List<KArticle> =
-//    kjson.decodeFromString(ListSerializer(KArticle.serializer()), (str.str))
-
-//fun JListKArticle.toList():List<KArticle> = kjson.decodeFromString(ListSerializer(KArticle.serializer()), (str))
-//fun JListString.toList():List<String> = kjson.decodeFromString(ListSerializer(String.serializer()), (str))
-//fun JListOriginalTrans.toList():List<OriginalTrans> =  kjson.decodeFromString(ListSerializer(OriginalTrans.serializer()), (str))
-//fun JListOriginalTransLink.toList():List<OriginalTransLink> = kjson.decodeFromString(ListSerializer(OriginalTransLink.serializer()), (str))
-
-//fun JListNewsPaper.toList():List<NewsPaper> = kjson.decodeFromString(ListSerializer(NewsPaper.serializer()), str)
-
-//fun fromJsonToList(str: JListNewsPaper): List<NewsPaper> = kjson.decodeFromString(ListSerializer(NewsPaper.serializer()), str.str)
-
-//fun toJListKArticle(list: List<KArticle>): JListKArticle =
-//    JListKArticle(kjson.encodeToString(ListSerializer(KArticle.serializer()), list))
-
-//fun List<KArticle>.toJSON4():JListKArticle=JListKArticle(kjson.encodeToString(ListSerializer(KArticle.serializer()), this))
-//fun List<OriginalTransLink>.toJSON3():JListOriginalTransLink=JListOriginalTransLink( kjson.encodeToString(ListSerializer(OriginalTransLink.serializer()),this ))
-
-//fun List<OriginalTrans>.toJSON():JListOriginalTrans=JListOriginalTrans(kjson.encodeToString(ListSerializer(OriginalTrans.serializer()), this))
-
-//fun List<String>.toJSON2():JListString=JListString(kjson.encodeToString(ListSerializer(String.serializer()), this))
 
 inline fun <reified T> toJStr(t:T):String{
     return kjson.encodeToString<T>(t)
 }
 
 inline fun <reified T>fromJStr(str:String):T{
+    if(str.isEmpty()) return emptyList<T>() as T  //si bueno no ....
     return kjson.decodeFromString<T>(str)
 }
-
-
-//fun toJListNewsPaper(list: List<NewsPaper>) =  JListNewsPaper(kjson.encodeToString(ListSerializer(NewsPaper.serializer()), list))
-
-//fun fromStrToTHeadLines(str: String): THeadLines = kjson.decodeFromString<THeadLines>(str)
-//fun toStrFromTHeadlines(thd: THeadLines): String = kjson.encodeToString(THeadLines.serializer(), thd)
-
-
-//fun fromStrToNewsPaperV(str:String): NewsPaperVersion = kjson.decodeFromString(str)
-//fun toStrFromNewsPaperV(npv:NewsPaperVersion): String = kjson.encodeToString(NewsPaperVersion.serializer(),npv)
-//fun NewsPaperVersion.toJStr():String = kjson.encodeToString(NewsPaperVersion.serializer(),this)
-//fun THeadLines.toJStr():String = kjson.encodeToString(THeadLines.serializer(), this)
-
 
 @Serializable
 class ListOriginalTransList(val lOT: List<OriginalTransLink>)
 
 @Serializable
-class JasonString  (val value: String)
-
+class JasonString  (val value: String){
+    override fun toString(): String {
+        return value
+    }
+}
 
 @Serializable
 class OHeadLines(val datal: Long, val lhl: List<KArticle>)
@@ -413,109 +392,6 @@ data class StoredElement(
     val tupdate: Long,
     val size: Long
 )
-
-
-sealed class KResult<T, R> {
-    class Success<T, R>(val t: T) : KResult<T, R>()
-    class Error<T, R>(val msg: String, val e: Exception? = null) : KResult<T, R>()
-    //object Empty : KResult<Nothing, Nothing>()
-}
-
-sealed class KResult4<T>{
-    class Succes<T>(val t:T) : KResult4<T>(){
-        fun X():String=" "
-    }
-}
-
-
-fun a(i:Int):Result<Unit>{
-    return Result.success<Unit>(Unit)
-    return Result.failure(Exception("kkd"))
-}
-
-//class   Success3<T>(val t: T, var clientTime:Long=0, val serverTime:Long=0) : KResult3<T>() {
-//}
-
-sealed class KResult3<T> {
-    class   Success<T>(val t: T,var name:String="", var clientTime:Long=0, val serverTime:Long=-1) : KResult3<T>() {
-        override fun msg(): String =  _msg("SUCCES!!",name)
-        //override fun timeInfo():String = "cli $clientTime srv ${serverTime}  (${clientTime-serverTime}) ms"
-        override fun timeInfo():String = _timeInfo(clientTime,serverTime)
-        override fun setclitime(t:Long){ clientTime=t }
-        override fun getclitime(): Long = clientTime
-
-    }
-    class Error<T>(val msg: String,var name:String="", var clientTime:Long=0,val serverTime: Long=-1) : KResult3<T>(){
-        override fun msg():String = _msg("ERROR!! $msg",name)//"ERROR->$msg client time ($clientTime)ms"
-        //override fun timeInfo():String = "cli $clientTime srv ${serverTime}  (${clientTime-serverTime})"
-        override fun timeInfo():String = _timeInfo(clientTime,serverTime)
-        override fun setclitime(t:Long){ clientTime=t }
-        override fun getclitime(): Long = clientTime
-    }
-    open fun msg():String=""
-    open fun timeInfo():String=""
-    open fun setclitime(t:Long){}
-    open fun getclitime():Long=0L
-    fun _timeInfo(clitime:Long,srvtime:Long):String {
-        var ans=""
-        if(srvtime==-1L) ans="cli ($clitime) ms"
-        else ans="cli ($clitime) srv ($srvtime)  lat=(${clitime-srvtime}) ms"
-        return ans
-    }
-
-    inline fun _msg(msg:String,name:String):String = "$msg $name -> ${timeInfo()}"
-    //open fun toUnit():KResult3<Unit>{ return KResult3.Success(Unit,"unknow name",this.getclitime(),888 )}
-
-    //object Empty : KResult<Nothing, Nothing>()
-}
-
-
-
-//@Serializable
-/*sealed class KResult2<T, R> {
-    class   Success<T, R>(val t: T, val clientTime:Long=0, val serverTime:Long=0) : KResult2<T, R>() {
-        override fun msg(): String { return "SUCCES->${clientTime.milisToSec()}" }
-        override fun timeInfo():String = "cli $clientTime srv ${serverTime}  (${clientTime-serverTime}) ms"
-
-    }
-    class Error<T, R>(val msg: String, val clientTime:Long=0,val serverTime: Long=0) : KResult2<T, R>(){
-        override fun msg():String{ return "ERROR->${clientTime.milisToSec()}\nmsg"}
-        override fun timeInfo():String = "cli $clientTime srv ${serverTime}  (${clientTime-serverTime})"
-    }
-    open fun msg():String=""
-    open fun timeInfo():String=""
-    //object Empty : KResult<Nothing, Nothing>()
-}*/
-
-inline fun <reified T, reified R> exWithException(afun: () -> T): KResult<T, R> {
-    return try {
-        val p = afun()
-        KResult.Success(p)
-    } catch (e: Exception) {
-        KResult.Error(e.message ?: "", e)
-    }
-}
-
-/*suspend fun < T,  R> exWithException2(afun: suspend () -> T): KResult2<T, R> {
-    return try {
-        val p = afun()
-        KResult2.Success(p,0,0)
-    } catch (e: Exception) {
-        KResult2.Error(e.message ?: "", 0L)
-    }
-}*/
-
-
-
-inline fun <reified T, reified R> exWithExceptionThrow(msg: String, afun: () -> T) {
-    try {
-        afun()
-    } catch (e: Exception) {
-        throw Exception(msg, e)
-    }
-}
-
-
 fun getStackStr():String{
        var msg = StringBuilder()
        msg.append("Stack->")
@@ -532,23 +408,46 @@ fun getStackExceptionMsg2(e: Exception?): String {
     if (e != null) {
             val j=Exception("\nException -> ${e.javaClass.canonicalName} ${e.message}")
      //       j.stackTrace = (e.stackTrace.filter { it.className.startsWith("com.begemot") }.toTypedArray())
-        j.stackTrace = (e.stackTrace.filter { true }.toTypedArray())
+          j.stackTrace = (e.stackTrace.filter { true }.toTypedArray())
             j.printStackTrace(PrintWriter(sw))
             return sw.toString()
     }
     return "no stack"
     //return msg.toString()
 }
-fun getStackExceptionMsg(e: Throwable?): String {
+fun getStackExceptionMsg22(e: Throwable?): String {
     var msg = ""
     val sw = StringWriter()
     if (e != null) {
-        val l=e.stackTrace.filter { it.className.startsWith("com.begemot") }
-        e.printStackTrace(PrintWriter(sw))
-        msg = "stack Trace ->\n ${sw.toString()}"
+        //val l=e.stackTrace.filter { it.className.startsWith("com.begemot") }
+        val j=Exception("\nException -> ${e.javaClass.name} ${e.message}")
+        j.stackTrace = (e.stackTrace.filter { true }.drop(1).toTypedArray())
+        j.printStackTrace(PrintWriter(sw))
+        msg = "stack Trace ->\n${sw.toString()}" //.substring(0,1500)
     }
     return msg
 }
+class KException(message: String? = null, cause: Throwable? = null) : Exception(message, cause)
+fun getStackExceptionMsg(e: Throwable?): String {
+    var msg:String = ""
+    var ms2=""
+    val sw = StringWriter()
+    if (e != null) {
+        val pr=if(e is KNEServerError) "\n${e.javaClass.name}" else "\n${e.javaClass.name}:${e.message}"
+
+        val j = KException(pr)
+        j.stackTrace = (e.stackTrace.filter {
+            it.className.startsWith("com.begemot") //|| it.className.contains("ktor") || it.className.contains("sun")
+        }.toTypedArray())
+        j.printStackTrace(PrintWriter(sw))
+        msg = "${sw.toString()}" //.substring(0,1500)
+        ms2=msg.split("\n").toList().drop(1).joinToString("\n")
+    }
+//    logger.error { "\nMS:${ms2}:MS" }
+    return ms2
+    //return msg
+}
+
 
 fun strfromdateasLong(date: Long): String {
     if (date == 0L) return ""
@@ -653,17 +552,6 @@ suspend fun <A, B> Iterable<A>.pmap(f: suspend (A) -> B): List<B> = coroutineSco
 }
 
 
-/*suspend fun getFreeTranslatedArticle(txt: String, olang: String,tlang:String):OriginalTrans{
-      if(olang.equals(tlang))  return  OriginalTrans(txt)
-      val transText = getFreeTranslatedText(txt,olang,tlang)
-      //val transText = translatePayString(txt,olang,tlang)
-      val rO:ListPinyin = if(olang.equals("zh")) ListPinyin(getPinYinKtor(txt)) else ListPinyin()
-      val rT:ListPinyin = if(tlang.equals("zh")) ListPinyin(getPinYinKtor(transText)) else ListPinyin()
-      return OriginalTrans(txt,transText,rT, rO)
-}*/
-
-
-
 fun getFreeTranslatedText(text: String, olang: String,tlang:String):String{
     if(text.isEmpty()) return ""
     val url =
@@ -692,7 +580,7 @@ fun getFreeTranslatedText(text: String, olang: String,tlang:String):String{
 }
 
 suspend fun getFreetranslatedTextPy(text: String, olang: String, tlang:String):List<OriginalTrans>  {
-    logger.debug { "text size ${text.length}  original $olang  translated $tlang"  }
+    //logger.debug { "text size ${text.length}  original $olang  translated $tlang"  }
     val lOriginalTrans= mutableListOf<OriginalTrans>()
     if(olang.equals(tlang)){
         val ls=text.split(". ")
@@ -731,7 +619,7 @@ suspend fun getFreetranslatedTextPy(text: String, olang: String, tlang:String):L
 suspend fun  addPinyinOT(thl:List<OriginalTrans>,original:Boolean):List<OriginalTrans>{
 //    thl.forEachIndexed { index, it ->  if(index<5) getPinying(it) }
     val scope= CoroutineScope(Job()+Dispatchers.IO)
-    logger.warn { "addpinyinOT original=$original" }
+    //logger.warn { "addpinyinOT original=$original" }
 //    logger.debug{thl.print("argument of addPinyinOT ")}
 
     var L:List<OriginalTrans> = emptyList()
@@ -745,7 +633,7 @@ suspend fun  addPinyinOT(thl:List<OriginalTrans>,original:Boolean):List<Original
         }
         l.join()
     }
-    logger.debug {"addPinyinOT pinyin time $time"}
+    //logger.debug {"addPinyinOT pinyin time $time"}
     return L
 
     //return thl.map { it->getPinying(it) }
@@ -755,7 +643,7 @@ suspend fun addPinyinOTL(thl:List<OriginalTransLink>,original:Boolean):List<Orig
 //    thl.forEachIndexed { index, it ->  if(index<5) getPinying(it) }
     val scope= CoroutineScope(Job()+Dispatchers.IO)
     var L:List<OriginalTransLink> = emptyList()
-    logger.warn { "addPinYinOTL" }
+    //logger.warn { "addPinYinOTL" }
     val time = measureTimeMillis {
    //     runBlocking(Dispatchers.IO) {
             val l = scope.launch {
@@ -765,7 +653,7 @@ suspend fun addPinyinOTL(thl:List<OriginalTransLink>,original:Boolean):List<Orig
         }
         l.join()
     }
-    logger.debug{"addPinyinOTL pinyin time $time   total elements : ${thl.size}"}
+    //logger.debug{"addPinyinOTL pinyin time $time   total elements : ${thl.size}"}
     return L
 
     //return thl.map { it->getPinying(it) }
@@ -793,7 +681,7 @@ suspend fun getPinYinKtor(s:String):List<Pinyin>{
             return CPINYNG
         //}
     }catch (e: java.lang.Exception){
-        logger.error { "$s $e" }
+      //  logger.error { "$s $e" }
         emptyList<Pinyin>()
     }
     return cx //as List<Pinyin>
@@ -804,7 +692,7 @@ suspend fun getPinYinKtor(s:String):List<Pinyin>{
 
 fun getPinYinJsoup(s:String):List<Pinyin>{
     //println("pinyin of: $s")
-    logger.debug { s }
+    //logger.debug { s }
     var cr:Document?=null
      try {
          cr = Jsoup.connect("https://www.chinese-tools.com/tools/pinyin.html")
@@ -819,7 +707,7 @@ fun getPinYinJsoup(s:String):List<Pinyin>{
 
 
      }catch (e:IOException){
-            logger.debug { "getPinYin exception $e  data=$s" }
+      //      logger.debug { "getPinYin exception $e  data=$s" }
             println (getStackExceptionMsg(e))
 
      }
@@ -840,7 +728,7 @@ fun JsonToListStrings(json:String):List<Translations>{
 }
 
 fun translateJson2(sjason:jsonTrans): List<Translations> {
-    logger.debug { "TRANSLATEJSON2" }
+    //logger.debug { "TRANSLATEJSON2" }
     val apikey="AIzaSyBP1dsYp-jPF6PfVetJWcguNLiFouZ3mjo"
     val sUrl="https://www.googleapis.com/language/translate/v2?key=$apikey"
     //Timber.d("URL: $sUrl")
@@ -909,16 +797,16 @@ fun splitLongText2(text:String):List<String>{
 
 
 suspend fun translateFreeListOfParagraphs(text:String, olang: String, tlang: String):List<OriginalTrans>{
-    logger.error{"-----FREE FREE FREE !!!!  ------"}
+    //logger.error{"-----FREE FREE FREE !!!!  ------"}
     val lp= splitLongText2(text)
-    logger.debug { "translateFreeListOfParagraphs ${lp.size}  $olang $tlang" }
-    logger.debug { lp.print("splited text") }
+    //logger.debug { "translateFreeListOfParagraphs ${lp.size}  $olang $tlang" }
+    //logger.debug { lp.print("splited text") }
 
     val lOriginalTrans= mutableListOf<OriginalTrans>()
     lp.forEach {
         lOriginalTrans.addAll(getFreetranslatedTextPy(it,olang,tlang))
     }
-    logger.debug { lOriginalTrans.print("Result") }
+    //logger.debug { lOriginalTrans.print("Result") }
     return lOriginalTrans
 }
 
@@ -935,4 +823,4 @@ suspend fun XgetTranslatedString(txt:String,olang:String,tlang: String):Original
     return l[0]
 }
 
-//Max 855 896 912 938
+//Max 855 896 912 938 941 952 968 983 826

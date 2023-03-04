@@ -8,6 +8,6 @@ dependencyResolutionManagement {
     }
     includeBuild("H:/prg/KnewsPlatform2")
 }
-rootProject.name = "knewscommon"
+rootProject.name = "KNewsCommon"
 //rootProject.buildFileName="build.gradle.kts"
 //includeBuild("../knico/plugin-build")
