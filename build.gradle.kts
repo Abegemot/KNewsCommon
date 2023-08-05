@@ -2,8 +2,8 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     id("com.github.ben-manes.versions") version "0.46.0"
-    kotlin("jvm") version("1.7.20")
-    kotlin("plugin.serialization") version "1.7.20"
+    kotlin("jvm") version("1.8.21")
+    kotlin("plugin.serialization") version "1.8.21"
     // id("kkorg.jetbrains.kotlin.plugin.serialization") version "1.5.30"
     `java-library`
 
@@ -23,6 +23,11 @@ version="1.0"
     mavenCentral()
     //jcenter()  //without it jsoup wont load!!
 }*/
+
+
+kotlin{
+    jvmToolchain(8)
+}
 
 
 dependencies {

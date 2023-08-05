@@ -49,7 +49,7 @@ class KResult<T>(val res:Result<T>,val srv_time:Long=-1,val cli_time:Long=-1,val
            // return info
             val isSrvErr   = it is KNEServerError
             val kindoError = if(isSrvErr) "Server" else "Client"
-            val stackinfo="""${getStackExceptionMsg(it)}""".trimIndent()
+             val stackinfo="""${getStackExceptionMsg(it)}""".trimIndent()
             val strLog=if(it is KNEServerError){
                   val srvErr= fromJStr<KServerError>(sparams)
                       """         Function called --> ${srvErr.sfun}
